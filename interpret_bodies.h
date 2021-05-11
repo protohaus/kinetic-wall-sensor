@@ -2,6 +2,8 @@
 
 #include <k4a/k4a.h>
 #include <k4abt.h>
+
+#include <cmath>
 #include <nlohmann/json.hpp>
 
 #include "ws_client.h"
@@ -15,24 +17,33 @@ class BodyHandler {
 
   void interpret(k4abt_body_t& body) {
     k4a_float3_t position_average = get_average_position(body);
-    if (position_average.xyz.x < -1000) {
-      box_activation_[0] = 1;
-    } else if(position_average.xyz.x < 0) {
-      box_activation_[1] = 1;
-    } else if (position_average.xyz.x < 1000) {
-      box_activation_[2] = 1;
-    } else if (position_average.xyz.x < 2000) {
-      box_activation_[3] = 1;
+    const float x = position_average.xyz.x;
+    for (int i = 0; i < box_activation_.size(); i++) {
+      const float abs_x_distance = fabs(x - box_x_[i]);
+      const float x_activation_limited = fmax(1000 - abs_x_distance, 0);
+      box_activation_[i] = x_activation_limited / 1000;
     }
-    printf("%f %f %f %f\n", box_activation_[0], box_activation_[1], box_activation_[2], box_activation_[3]);
+    // if (position_average.xyz.x < -1000) {
+    //   box_activation_[0] = 1;
+    // } else if (position_average.xyz.x < 0) {
+    //   box_activation_[1] = 1;
+    // } else if (position_average.xyz.x < 1000) {
+    //   box_activation_[2] = 1;
+    // } else if (position_average.xyz.x < 2000) {
+    //   box_activation_[3] = 1;
+    // }
+    printf("%f %f %f %f\n", box_activation_[0], box_activation_[1],
+           box_activation_[2], box_activation_[3]);
   }
   void send() {
     nlohmann::json commands = nlohmann::json::array();
     for (int i = 0; i < box_activation_.size(); i++) {
       nlohmann::json command = nlohmann::json::object();
-      command["id"] = i;
-      if(box_activation_[i] > 0) {
-        command["mode"] = "on";
+      command["id"] = box_count_ - i - 1;
+      if (box_activation_[i] > 0) {
+        command["mode"] = "pwm";
+        command["frequency_hz"] = 1 + box_activation_[i] * 10;
+        command["duty_cycle"] = box_activation_[i] * 0.5;
       } else {
         command["mode"] = "off";
       }
@@ -66,5 +77,6 @@ class BodyHandler {
   websocket_endpoint& client_;
   const uint box_count_;
 
+  std::vector<float> box_x_ = {-1500, -500, 500, 1500};
   std::vector<float> box_activation_;
 };

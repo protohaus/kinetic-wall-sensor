@@ -8,8 +8,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "ws_client.h"
+#include <chrono>
+#include <thread>
+
 #include "interpret_bodies.h"
+#include "ws_client.h"
 
 #define VERIFY(result, error)                                               \
   if (result != K4A_RESULT_SUCCEEDED) {                                     \
@@ -90,6 +93,8 @@ int main(int argc, char* argv[]) {
          "Body tracker initialization failed!");
 
   int frame_count = 0;
+  auto time_step = std::chrono::system_clock::now();
+
   while (true) {
     k4a_capture_t sensor_capture;
     k4a_wait_result_t get_capture_result =
@@ -131,8 +136,9 @@ int main(int argc, char* argv[]) {
           body_handler.send();
         }
 
-        // k4a_image_t body_index_map = k4abt_frame_get_body_index_map(body_frame);
-        // if (body_index_map != NULL) {
+        // k4a_image_t body_index_map =
+        // k4abt_frame_get_body_index_map(body_frame); if (body_index_map !=
+        // NULL) {
         //   print_body_index_map_middle_line(body_index_map);
         //   k4a_image_release(body_index_map);
         // } else {
@@ -156,7 +162,8 @@ int main(int argc, char* argv[]) {
       printf("Get depth capture returned error: %d\n", get_capture_result);
       break;
     }
-
+    time_step += std::chrono::milliseconds(500);
+    std::this_thread::sleep_until(time_step);
   }
 
   printf("Finished body tracking processing!\n");
