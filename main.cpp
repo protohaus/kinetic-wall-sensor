@@ -64,14 +64,14 @@ void print_body_index_map_middle_line(k4a_image_t body_index_map) {
 int main(int argc, char* argv[]) {
   websocket_endpoint client;
 
-  std::string uri = "ws://192.168.0.35:9876";
+  std::string uri = "ws://192.168.0.28:9876";
 
   try {
     client.connect(uri);
   } catch (websocketpp::exception const& e) {
     std::cout << e.what() << std::endl;
   }
-  BodyHandler body_handler(client, 4);
+  BodyHandler body_handler(client, 6);
 
   k4a_device_configuration_t device_config = K4A_DEVICE_CONFIG_INIT_DISABLE_ALL;
   device_config.depth_mode = K4A_DEPTH_MODE_NFOV_UNBINNED;
@@ -124,15 +124,19 @@ int main(int argc, char* argv[]) {
         uint32_t num_bodies = k4abt_frame_get_num_bodies(body_frame);
         printf("%u bodies are detected!\n", num_bodies);
 
-        for (uint32_t i = 0; i < num_bodies; i++) {
-          k4abt_body_t body;
-          VERIFY(k4abt_frame_get_body_skeleton(body_frame, i, &body.skeleton),
-                 "Get body from body frame failed!");
-          body.id = k4abt_frame_get_body_id(body_frame, i);
+        if (num_bodies) {
+          client.send(0, "[{\"id\": 0, \"mode\": \"on_for\", \"duration_s\": 0.5}]");
+          for (uint32_t i = 0; i < num_bodies; i++) {
+            k4abt_body_t body;
+            VERIFY(k4abt_frame_get_body_skeleton(body_frame, i, &body.skeleton),
+                  "Get body from body frame failed!");
+            body.id = k4abt_frame_get_body_id(body_frame, i);
 
-          // print_body_information(body);
-          // client.send(0, "{\"mode\": \"on\"}");
-          body_handler.interpret(body);
+            // print_body_information(body);
+            body_handler.interpret(body);
+            body_handler.send();
+          }
+        } else {
           body_handler.send();
         }
 
@@ -162,7 +166,7 @@ int main(int argc, char* argv[]) {
       printf("Get depth capture returned error: %d\n", get_capture_result);
       break;
     }
-    time_step += std::chrono::milliseconds(500);
+    time_step += std::chrono::milliseconds(250);
     std::this_thread::sleep_until(time_step);
   }
 
